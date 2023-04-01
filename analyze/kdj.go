@@ -6,17 +6,15 @@ import (
 	"github.com/raymond-chia/stock/domain"
 )
 
-// 當日K值=2/3×前一日K值+1/3×當日RSV
-// 當日D值=2/3×前一日D值+1/3×當日K值
-// 當日J值=3×當日K值-2×當日D值
-// 如果前一天沒有K值和D值，可以用50代替。
-//
+// 需要確定公式, 先用中文資訊
 // n 請見 rsv
 func KDJ(data []domain.Data, n int) []domain.KDJData {
+	// add default kdj
+	// we will remove it later
 	result := []domain.KDJData{{K: 50, D: 50, J: 50}}
 	for i := range data {
 		kdj := domain.KDJData{}
-		kdj.RSV = rsv(data[max(i-n, 0) : i+1])
+		kdj.RSV = rsv(data[Max(i-n, 0) : i+1])
 		kdj.K = 2.0/3.0*result[i].K + 1.0/3.0*kdj.RSV
 		kdj.D = 2.0/3.0*result[i].D + 1.0/3.0*kdj.K
 		kdj.J = 3*kdj.K - 2*kdj.D

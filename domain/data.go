@@ -17,3 +17,11 @@ type KDJData struct {
 	J   float64
 	RSV float64
 }
+
+type MACDData struct {
+	EMA12 float64
+	EMA26 float64
+	DIF   float64
+	MACD  float64
+	OSC   float64
+}
