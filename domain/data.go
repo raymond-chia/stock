@@ -10,3 +10,10 @@ type Data struct {
 	Low    float64
 	Volume int
 }
+
+type KDJData struct {
+	K   float64
+	D   float64
+	J   float64
+	RSV float64
+}
