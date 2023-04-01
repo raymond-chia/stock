@@ -37,7 +37,10 @@ func Yahoo(id int) (bool, string, []domain.Data, error) {
 	raw := map[string]any{}
 	err = json.Unmarshal(b, &raw)
 	if err != nil {
-		return false, "", nil, fmt.Errorf("fail to unmarshal response from Yahoo with error[%w]", err)
+		return false, "", nil, fmt.Errorf(
+			"fail to unmarshal response from Yahoo with bytes[%v] with error[%w]",
+			string(b), err,
+		)
 	}
 
 	mem := raw["mem"].(map[string]any)
