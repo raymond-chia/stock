@@ -3,6 +3,8 @@ package analyze
 import "github.com/raymond-chia/stock/domain"
 
 func MACD(data []domain.Data) []domain.MACDData {
+	// padding
+	// we will remove it later
 	ema12 := []float64{data[0].Close}
 	ema26 := []float64{data[0].Close}
 	for i, d := range data {
@@ -15,6 +17,7 @@ func MACD(data []domain.Data) []domain.MACDData {
 	result := []domain.MACDData{}
 	for i := range ema12 {
 		d := domain.MACDData{}
+		d.Date = data[i].Date
 		d.EMA12 = ema12[i]
 		d.EMA26 = ema26[i]
 		d.DIF = dif(d.EMA12, d.EMA26)
@@ -28,19 +31,6 @@ func MACD(data []domain.Data) []domain.MACDData {
 		result = append(result, d)
 	}
 	return result
-}
-
-// a = 2 / (n + 1)
-// n 代表天數
-//
-// St = a x Pt + (1 - a) x St-1
-func ema(now, past float64, n int) float64 {
-	a := float64(n) + 1.0
-	a = 2.0 / a
-
-	now = a * now
-	past = (1 - a) * past
-	return now + past
 }
 
 func dif(ema12, ema26 float64) float64 {

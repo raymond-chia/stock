@@ -7,6 +7,11 @@ import (
 	"github.com/raymond-chia/stock/crawler/yahoo"
 )
 
+const (
+	KDJFilter = 50.0
+	BBIFilter = 2.0
+)
+
 var IDs = map[int]int{
 	2330: 0,
 	3037: 0,
@@ -109,20 +114,25 @@ func main() {
 	for id := range IDs {
 		missing, name, data, err := yahoo.Yahoo(id)
 		if err != nil {
-			panic(err)
+			fmt.Println("an error occurs:", err)
+			continue
 		}
 		if missing {
 			fmt.Println(id, "missing data")
 		}
-		data = data[analyze.Max(len(data)-180, 0):]
+		// data = data[analyze.Max(len(data)-180, 0):]
 		kdj := analyze.KDJ(data, 9)
 		macd := analyze.MACD(data)
+		bbi := analyze.BullBearIndex(data)
 
-		if kdj[len(kdj)-1].K > 50.0 {
+		i := len(data) - 1
+		if kdj[i].K > KDJFilter {
 			continue
 		}
-		i := len(data) - 1
-		fmt.Println(name, data[i].Date)
-		fmt.Printf("\t%+v\n\t%+v\n", kdj[i], macd[i])
+		if bbi[i].Diff > BBIFilter {
+			continue
+		}
+		fmt.Println(id, name)
+		fmt.Printf("\tKDJ: %+v\n\tMACD: %+v\n\t多空乖離: %+v\n", kdj[i], macd[i], bbi[i])
 	}
 }

@@ -14,6 +14,7 @@ func KDJ(data []domain.Data, n int) []domain.KDJData {
 	result := []domain.KDJData{{K: 50, D: 50, J: 50}}
 	for i := range data {
 		kdj := domain.KDJData{}
+		kdj.Date = data[i].Date
 		kdj.RSV = rsv(data[Max(i-n, 0) : i+1])
 		kdj.K = 2.0/3.0*result[i].K + 1.0/3.0*kdj.RSV
 		kdj.D = 2.0/3.0*result[i].D + 1.0/3.0*kdj.K
