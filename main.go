@@ -2,14 +2,23 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/raymond-chia/stock/analyze"
 	"github.com/raymond-chia/stock/crawler/yahoo"
+	"github.com/raymond-chia/stock/domain"
 )
 
 const (
-	KDJFilter = 50.0
-	BBIFilter = 2.0
+	// 日
+	KDJDailyFilter = 50.0
+	BBIDailyFilter = 2.0
+	// 周
+	KDJWeeklyFilter = 55.0
+	BBIWeeklyFilter = 2.0
+	// 月
+	KDJMonthlyFilter = 60.0
+	BBIMonthlyFilter = 2.0
 )
 
 type ID string
@@ -124,26 +133,38 @@ var IDs = map[ID]int{
 func main() {
 	fmt.Println("總共:", len(IDs))
 
-	first, second := crawl()
+	daily, weekly, monthly := crawl()
 
-	fmt.Println("# 第一個篩選:")
-	for id, name := range first {
+	fmt.Println("# 日篩選:")
+	for id, name := range daily {
+		if _, ok := weekly[id]; ok {
+			continue
+		}
 		fmt.Println(id, name)
 	}
-	fmt.Println("# 第二個篩選:")
-	for id, name := range second {
+	fmt.Println("# 周篩選:")
+	for id, name := range weekly {
+		if _, ok := monthly[id]; ok {
+			continue
+		}
 		fmt.Println(id, name)
 	}
-	fmt.Println("- 第一個篩選:", len(first))
-	fmt.Println("- 第二個篩選:", len(second))
+	fmt.Println("# 月篩選:")
+	for id, name := range monthly {
+		fmt.Println(id, name)
+	}
+	fmt.Println("- 日篩選:", len(daily))
+	fmt.Println("- 周篩選:", len(weekly))
+	fmt.Println("- 月篩選:", len(monthly))
 }
 
 type Name string
 type Filter map[ID]Name
 
-func crawl() (Filter, Filter) {
-	first := Filter{}
-	second := Filter{}
+func crawl() (Filter, Filter, Filter) {
+	daily := Filter{}
+	weekly := Filter{}
+	monthly := Filter{}
 
 	for id := range IDs {
 		missing, name, data, err := yahoo.Yahoo(string(id))
@@ -154,19 +175,74 @@ func crawl() (Filter, Filter) {
 		if missing {
 			fmt.Println(id, "missing data")
 		}
-		// data = data[analyze.Max(len(data)-180, 0):]
-		kdj := analyze.KDJ(data, 9)
-		// macd := analyze.MACD(data)
-		bbi := analyze.BullBearIndex(data)
 
-		i := len(data) - 1
-		if kdj[i].K > KDJFilter {
+		if filterDaily(data) {
 			continue
 		}
-		if bbi[i].Diff > BBIFilter {
+		daily[id] = Name(name)
+
+		if filterWeekly(data) {
 			continue
 		}
-		first[id] = Name(name)
+		weekly[id] = Name(name)
+
+		if filterMonthly(data) {
+			continue
+		}
+		monthly[id] = Name(name)
 	}
-	return first, second
+	return daily, weekly, monthly
+}
+
+func filterDaily(data []domain.Data) bool {
+	// data = data[analyze.Max(len(data)-180, 0):]
+	kdj := analyze.KDJ(data, 9)
+	// macd := analyze.MACD(data)
+	bbi := analyze.BullBearIndex(data)
+
+	i := len(data) - 1
+	return kdj[i].K > KDJDailyFilter ||
+		bbi[i].Diff > BBIDailyFilter
+}
+
+func filterWeekly(data []domain.Data) bool {
+	weekly := []domain.Data{}
+	t := time.Now().Add(time.Hour * 24 * 365)
+	for i := len(data) - 1; i >= 0; i-- {
+		d := data[i]
+		if !d.Date.Add(time.Hour * 24 * 6).Before(t) {
+			continue
+		}
+		t = d.Date
+		weekly = append([]domain.Data{d}, weekly...)
+	}
+
+	kdj := analyze.KDJ(weekly, 9)
+	// macd := analyze.MACD(weekly)
+	bbi := analyze.BullBearIndex(weekly)
+
+	i := len(weekly) - 1
+	return kdj[i].K > KDJWeeklyFilter ||
+		bbi[i].Diff > BBIWeeklyFilter
+}
+
+func filterMonthly(data []domain.Data) bool {
+	monthly := []domain.Data{}
+	t := time.Now().Add(time.Hour * 24 * 365)
+	for i := len(data) - 1; i >= 0; i-- {
+		d := data[i]
+		if !d.Date.Add(time.Hour * 24 * 27).Before(t) {
+			continue
+		}
+		t = d.Date
+		monthly = append([]domain.Data{d}, monthly...)
+	}
+
+	kdj := analyze.KDJ(monthly, 9)
+	// macd := analyze.MACD(monthly)
+	bbi := analyze.BullBearIndex(monthly)
+
+	i := len(monthly) - 1
+	return kdj[i].K > KDJMonthlyFilter ||
+		bbi[i].Diff > BBIMonthlyFilter
 }
