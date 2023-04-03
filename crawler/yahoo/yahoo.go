@@ -12,12 +12,12 @@ import (
 	"github.com/raymond-chia/stock/domain"
 )
 
-func Yahoo(id int) (bool, string, []domain.Data, error) {
+func Yahoo(id string) (bool, string, []domain.Data, error) {
 	v := url.Values{
 		"v":        {"1"},
 		"type":     {"ta"},
 		"mkt":      {"10"},
-		"sym":      {fmt.Sprint(id)},
+		"sym":      {id},
 		"perd":     {"d"},
 		"_":        {fmt.Sprint(time.Now().UnixMilli())},
 		"callback": {""},
