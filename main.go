@@ -148,7 +148,7 @@ var IDs = map[ID]int{
 func main() {
 	fmt.Println("總共:", len(IDs))
 
-	daily, weekly, monthly := crawl()
+	daily, weekly, monthly, weeklyAndUnderAverage := crawl()
 
 	fmt.Println("# 日篩選:")
 	for id, name := range daily {
@@ -164,6 +164,10 @@ func main() {
 		}
 		fmt.Println(id, name)
 	}
+	fmt.Println("# 周篩選且價格低於平均:")
+	for id, name := range weeklyAndUnderAverage {
+		fmt.Println(id, name)
+	}
 	fmt.Println("# 月篩選:")
 	for id, name := range monthly {
 		fmt.Println(id, name)
@@ -176,10 +180,11 @@ func main() {
 type Name string
 type Filter map[ID]Name
 
-func crawl() (Filter, Filter, Filter) {
+func crawl() (Filter, Filter, Filter, Filter) {
 	daily := Filter{}
 	weekly := Filter{}
 	monthly := Filter{}
+	weeklyAndUnderAverage := Filter{}
 
 	for id := range IDs {
 		missing, name, data, err := yahoo.Yahoo(string(id))
@@ -200,13 +205,16 @@ func crawl() (Filter, Filter, Filter) {
 			continue
 		}
 		weekly[id] = Name(name)
+		if underAverage(data) {
+			weeklyAndUnderAverage[id] = Name(name)
+		}
 
 		if filterMonthly(data) {
 			continue
 		}
 		monthly[id] = Name(name)
 	}
-	return daily, weekly, monthly
+	return daily, weekly, monthly, weeklyAndUnderAverage
 }
 
 func filterDaily(data []domain.Data) bool {
@@ -260,4 +268,17 @@ func filterMonthly(data []domain.Data) bool {
 	i := len(monthly) - 1
 	return kdj[i].K > KDJMonthlyFilter ||
 		bbi[i].Diff > BBIMonthlyFilter
+}
+
+func underAverage(data []domain.Data) bool {
+	count := 1460
+	if len(data)-1461 < 0 {
+		count = len(data) - 1
+	}
+	total := 0.0
+	for i := len(data) - 1; i >= 0 && i >= len(data)-1461; i-- {
+		total += data[i].Close
+	}
+	avg := total / float64(count)
+	return data[len(data)-1].Close < avg
 }
