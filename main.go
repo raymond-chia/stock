@@ -145,6 +145,9 @@ var IDs = map[ID]int{
 	"2645": 0,
 }
 
+// 人工檢查本益比 ?
+// 有時候高還是可以 ?
+// Yahoo 股市: 本益比, 股利, 財務, 基本
 func main() {
 	fmt.Println("總共:", len(IDs))
 
@@ -164,6 +167,7 @@ func main() {
 		}
 		fmt.Println(id, name)
 	}
+	// TODO 今年營收成長大於 0% ?
 	fmt.Println("# 周篩選且價格低於平均:")
 	for id, name := range weeklyAndUnderAverage {
 		fmt.Println(id, name)
@@ -266,8 +270,11 @@ func filterMonthly(data []domain.Data) bool {
 	bbi := analyze.BullBearIndex(monthly)
 
 	i := len(monthly) - 1
-	return kdj[i].K > KDJMonthlyFilter ||
-		bbi[i].Diff > BBIMonthlyFilter
+	// TODO fix monthly bbi
+	_ = bbi
+	return kdj[i].K > KDJMonthlyFilter
+	// ||
+	// bbi[i].Diff > BBIMonthlyFilter
 }
 
 func underAverage(data []domain.Data) bool {
