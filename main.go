@@ -14,11 +14,9 @@ const (
 	KDJDailyFilter = 30.0
 	BBIDailyFilter = 2.0
 	// 周
-	KDJWeeklyFilter = 55.0
+	KDJWeeklyFilter = 45.0
 	BBIWeeklyFilter = 2.0
-	// 月
-	KDJMonthlyFilter = 60.0
-	BBIMonthlyFilter = 2.0
+	// 月 算出來跟 yahoo 差距過大
 )
 
 type ID string
@@ -27,7 +25,10 @@ var IDs = map[ID]int{
 	"0050": 0,
 	"0056": 0,
 	"2330": 0,
+	"2603": 0,
+	"2606": 0,
 	"3037": 0,
+	"3030": 0,
 	"5425": 0,
 	"5403": 0,
 	"8155": 0,
@@ -38,8 +39,8 @@ var IDs = map[ID]int{
 	"3491": 0,
 	"6435": 0,
 	"3596": 0,
+	"3592": 0,
 	"3023": 0,
-	"3059": 0,
 	"6138": 0,
 	"6515": 0,
 	"6488": 0,
@@ -51,9 +52,10 @@ var IDs = map[ID]int{
 	"3217": 0,
 	"3265": 0,
 	"3526": 0,
-	"2634": 0,
 	"6411": 0,
 	"6752": 0,
+	"6753": 0,
+	"5371": 0,
 	"6756": 0,
 	"3081": 0,
 	"2455": 0,
@@ -62,6 +64,7 @@ var IDs = map[ID]int{
 	"2376": 0,
 	"2377": 0,
 	"6279": 0,
+	"6239": 0,
 	"3558": 0,
 	"2345": 0,
 	"8478": 0,
@@ -77,6 +80,7 @@ var IDs = map[ID]int{
 	"3532": 0,
 	"2351": 0,
 	"2357": 0,
+	"2359": 0,
 	"4739": 0,
 	"4721": 0,
 	"3680": 0,
@@ -85,11 +89,13 @@ var IDs = map[ID]int{
 	"3413": 0,
 	"3035": 0,
 	"1560": 0,
+	"1582": 0,
 	"6414": 0,
 	"3533": 0,
 	"3515": 0,
 	"8299": 0,
 	"3454": 0,
+	"5474": 0,
 	"4958": 0,
 	"3324": 0,
 	"3019": 0,
@@ -108,16 +114,16 @@ var IDs = map[ID]int{
 	"2404": 0,
 	"2480": 0,
 	"2464": 0,
+	"2465": 0,
 	"3131": 0,
 	"3551": 0,
 	"3583": 0,
 	"5536": 0,
-	"1504": 0,
+	"5009": 0,
 	"2395": 0,
 	"2439": 0,
 	"2449": 0,
 	"3227": 0,
-	"5351": 0,
 	"6214": 0,
 	"6166": 0,
 	"3231": 0,
@@ -140,18 +146,30 @@ var IDs = map[ID]int{
 	"3693": 0,
 	"3362": 0,
 	"4938": 0,
+	"9958": 0,
+	"1514": 0,
+	"1519": 0,
+	"6806": 0,
+	"2059": 0,
 	"5904": 0,
+	// 航運 可以參考 bdi ??
+	"2609": 0,
 	// 無人機
 	"2645": 0,
+	"8033": 0,
+	"2634": 0,
 }
 
-// 人工檢查本益比 ?
-// 有時候高還是可以 ?
+// 人工檢查本益比 ? 有時候高還是可以 ?
+// ROE 15%+ (財報狗)
+// 營業利益率 10%+ (奇摩基本)
+// CDP 不高 (月線)
+// DMI 紅尖買, 藍尖賣
 // Yahoo 股市: 本益比, 股利, 財務, 基本
 func main() {
 	fmt.Println("總共:", len(IDs))
 
-	daily, weekly, monthly, weeklyAndUnderAverage := crawl()
+	daily, weekly, weeklyAndUnderAverage := crawl()
 
 	fmt.Println("# 日篩選:")
 	for id, name := range daily {
@@ -162,9 +180,6 @@ func main() {
 	}
 	fmt.Println("# 周篩選:")
 	for id, name := range weekly {
-		if _, ok := monthly[id]; ok {
-			continue
-		}
 		fmt.Println(id, name)
 	}
 	// TODO 今年營收成長大於 0% ?
@@ -172,22 +187,16 @@ func main() {
 	for id, name := range weeklyAndUnderAverage {
 		fmt.Println(id, name)
 	}
-	fmt.Println("# 月篩選:")
-	for id, name := range monthly {
-		fmt.Println(id, name)
-	}
 	fmt.Println("- 日篩選:", len(daily))
 	fmt.Println("- 周篩選:", len(weekly))
-	fmt.Println("- 月篩選:", len(monthly))
 }
 
 type Name string
 type Filter map[ID]Name
 
-func crawl() (Filter, Filter, Filter, Filter) {
+func crawl() (Filter, Filter, Filter) {
 	daily := Filter{}
 	weekly := Filter{}
-	monthly := Filter{}
 	weeklyAndUnderAverage := Filter{}
 
 	for id := range IDs {
@@ -200,25 +209,18 @@ func crawl() (Filter, Filter, Filter, Filter) {
 			fmt.Println(id, "missing data")
 		}
 
-		if filterDaily(data) {
-			continue
-		}
-		daily[id] = Name(name)
-
-		if filterWeekly(data) {
-			continue
-		}
-		weekly[id] = Name(name)
-		if underAverage(data) {
-			weeklyAndUnderAverage[id] = Name(name)
+		if !filterDaily(data) {
+			daily[id] = Name(name)
 		}
 
-		if filterMonthly(data) {
-			continue
+		if !filterWeekly(data) {
+			weekly[id] = Name(name)
+			if underAverage(data) {
+				weeklyAndUnderAverage[id] = Name(name)
+			}
 		}
-		monthly[id] = Name(name)
 	}
-	return daily, weekly, monthly, weeklyAndUnderAverage
+	return daily, weekly, weeklyAndUnderAverage
 }
 
 func filterDaily(data []domain.Data) bool {
@@ -253,29 +255,30 @@ func filterWeekly(data []domain.Data) bool {
 		bbi[i].Diff > BBIWeeklyFilter
 }
 
-func filterMonthly(data []domain.Data) bool {
-	monthly := []domain.Data{}
-	t := time.Now().Add(time.Hour * 24 * 365)
-	for i := len(data) - 1; i >= 0; i-- {
-		d := data[i]
-		if !d.Date.Add(time.Hour * 24 * 27).Before(t) {
-			continue
-		}
-		t = d.Date
-		monthly = append([]domain.Data{d}, monthly...)
-	}
+// // TODO
+// func filterMonthly(data []domain.Data) bool {
+// 	monthly := []domain.Data{}
+// 	t := time.Now().Add(time.Hour * 24 * 365)
+// 	for i := len(data) - 1; i >= 0; i-- {
+// 		d := data[i]
+// 		if !d.Date.Add(time.Hour * 24 * 27).Before(t) {
+// 			continue
+// 		}
+// 		t = d.Date
+// 		monthly = append([]domain.Data{d}, monthly...)
+// 	}
 
-	kdj := analyze.KDJ(monthly, 9)
-	// macd := analyze.MACD(monthly)
-	bbi := analyze.BullBearIndex(monthly)
+// 	kdj := analyze.KDJ(monthly, 9)
+// 	// macd := analyze.MACD(monthly)
+// 	bbi := analyze.BullBearIndex(monthly)
 
-	i := len(monthly) - 1
-	// TODO fix monthly bbi
-	_ = bbi
-	return kdj[i].K > KDJMonthlyFilter
-	// ||
-	// bbi[i].Diff > BBIMonthlyFilter
-}
+// 	i := len(monthly) - 1
+// 	// TODO fix monthly bbi
+// 	_ = bbi
+// 	return kdj[i].K > KDJMonthlyFilter
+// 	// ||
+// 	// bbi[i].Diff > BBIMonthlyFilter
+// }
 
 func underAverage(data []domain.Data) bool {
 	count := 1460
