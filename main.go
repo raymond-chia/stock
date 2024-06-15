@@ -17,6 +17,9 @@ const (
 	KDJWeeklyFilter = 45.0
 	BBIWeeklyFilter = 2.0
 	// 月 算出來跟 yahoo 差距過大
+
+	// rsi 替代 kdj
+	// dmi 紅尖
 )
 
 type ID string
@@ -163,8 +166,10 @@ var IDs = map[ID]int{
 // 人工檢查本益比 ? 有時候高還是可以 ?
 // ROE 15%+ (財報狗)
 // 營業利益率 10%+ (奇摩基本)
-// CDP 不高 (月線)
-// DMI 紅尖買, 藍尖賣
+// CDP 不高 (月線). 收縮 ??
+// RSI 當 RSI 高於 70, 表示股價處於超買區, 可能會回調; 當 RSI 低於 30, 表示股價處於超賣區, 可能會反彈
+// DMI 紅尖買, 藍尖賣.
+// DMI +DI 上漲程度; -DI 下降程度; AD https://tw.stock.yahoo.com/news/%E6%8A%80%E8%A1%93%E5%88%86%E6%9E%90-dmi%E6%8C%87%E6%A8%99-dmi%E5%8B%95%E5%90%91%E6%8C%87%E6%A8%99-%E5%A4%9A%E7%A9%BA%E6%96%B9%E5%90%91-%E8%B6%A8%E5%8B%A2%E5%8B%95%E8%83%BD-130256849.html
 // Yahoo 股市: 本益比, 股利, 財務, 基本
 func main() {
 	fmt.Println("總共:", len(IDs))
@@ -226,7 +231,6 @@ func crawl() (Filter, Filter, Filter) {
 func filterDaily(data []domain.Data) bool {
 	// data = data[analyze.Max(len(data)-180, 0):]
 	kdj := analyze.KDJ(data, 9)
-	// macd := analyze.MACD(data)
 	bbi := analyze.BullBearIndex(data)
 
 	i := len(data) - 1
@@ -247,7 +251,6 @@ func filterWeekly(data []domain.Data) bool {
 	}
 
 	kdj := analyze.KDJ(weekly, 9)
-	// macd := analyze.MACD(weekly)
 	bbi := analyze.BullBearIndex(weekly)
 
 	i := len(weekly) - 1
