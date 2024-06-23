@@ -301,6 +301,11 @@ func dmiPeak(data []domain.Data) bool {
 	dmi := analyze.DMI(data, 14)
 	for i := 0; i < 7; i++ {
 		if analyze.DMIMinusPeak(dmi, i) {
+			for j := 0; j < i; j++ {
+				if analyze.DMIPlusPeak(dmi, j) {
+					return false
+				}
+			}
 			return true
 		}
 	}

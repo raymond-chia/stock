@@ -58,9 +58,16 @@ func DMI(data []domain.Data, period int) []domain.DMI {
 	return result
 }
 
+func DMIPlusPeak(dmi []domain.DMI, offset int) bool {
+	first := dmi[len(dmi)-3-offset].Plus
+	second := dmi[len(dmi)-2-offset].Plus
+	third := dmi[len(dmi)-1-offset].Plus
+	return second > first && second > third && (Max(second-first, second-third) > 1.0)
+}
+
 func DMIMinusPeak(dmi []domain.DMI, offset int) bool {
 	first := dmi[len(dmi)-3-offset].Minus
 	second := dmi[len(dmi)-2-offset].Minus
 	third := dmi[len(dmi)-1-offset].Minus
-	return second > first && second > third
+	return second > first && second > third && (Max(second-first, second-third) > 1.0)
 }
