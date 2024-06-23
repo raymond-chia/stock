@@ -18,12 +18,17 @@ const (
 	BBIWeeklyFilter = 2.0
 	// 月 算出來跟 yahoo 差距過大
 
+	// 成交量不低
 	// rsi 替代 kdj
-	// dmi 紅尖
 )
 
 type ID string
 
+// 定存股
+// 鈊象 3293
+// 聯華 1229: 股票
+// 義隆 2458: 現金
+// 橘子 6180: 看營收
 var IDs = map[ID]int{
 	"0050": 0,
 	"0056": 0,
@@ -174,7 +179,7 @@ var IDs = map[ID]int{
 func main() {
 	fmt.Println("總共:", len(IDs))
 
-	daily, weekly, weeklyAndUnderAverage := crawl()
+	daily, weekly, weeklyAndUnderAverage, dailyDMI := crawl()
 
 	fmt.Println("# 日篩選:")
 	for id, name := range daily {
@@ -192,17 +197,20 @@ func main() {
 	for id, name := range weeklyAndUnderAverage {
 		fmt.Println(id, name)
 	}
-	fmt.Println("- 日篩選:", len(daily))
-	fmt.Println("- 周篩選:", len(weekly))
+	fmt.Println("# 日近期有 DMI -DI 尖:")
+	for id, name := range dailyDMI {
+		fmt.Println(id, name)
+	}
 }
 
 type Name string
 type Filter map[ID]Name
 
-func crawl() (Filter, Filter, Filter) {
+func crawl() (Filter, Filter, Filter, Filter) {
 	daily := Filter{}
 	weekly := Filter{}
 	weeklyAndUnderAverage := Filter{}
+	dailyDMI := Filter{}
 
 	for id := range IDs {
 		missing, name, data, err := yahoo.Yahoo(string(id))
@@ -213,23 +221,26 @@ func crawl() (Filter, Filter, Filter) {
 		if missing {
 			fmt.Println(id, "missing data")
 		}
+		weeklyData := weeklyData(data)
 
 		if !filterDaily(data) {
 			daily[id] = Name(name)
 		}
-
-		if !filterWeekly(data) {
+		if !filterWeekly(weeklyData) {
 			weekly[id] = Name(name)
 			if underAverage(data) {
 				weeklyAndUnderAverage[id] = Name(name)
 			}
 		}
+
+		if dmiPeak(data) {
+			dailyDMI[id] = Name(name)
+		}
 	}
-	return daily, weekly, weeklyAndUnderAverage
+	return daily, weekly, weeklyAndUnderAverage, dailyDMI
 }
 
 func filterDaily(data []domain.Data) bool {
-	// data = data[analyze.Max(len(data)-180, 0):]
 	kdj := analyze.KDJ(data, 9)
 	bbi := analyze.BullBearIndex(data)
 
@@ -239,21 +250,10 @@ func filterDaily(data []domain.Data) bool {
 }
 
 func filterWeekly(data []domain.Data) bool {
-	weekly := []domain.Data{}
-	t := time.Now().Add(time.Hour * 24 * 365)
-	for i := len(data) - 1; i >= 0; i-- {
-		d := data[i]
-		if !d.Date.Add(time.Hour * 24 * 6).Before(t) {
-			continue
-		}
-		t = d.Date
-		weekly = append([]domain.Data{d}, weekly...)
-	}
+	kdj := analyze.KDJ(data, 9)
+	bbi := analyze.BullBearIndex(data)
 
-	kdj := analyze.KDJ(weekly, 9)
-	bbi := analyze.BullBearIndex(weekly)
-
-	i := len(weekly) - 1
+	i := len(data) - 1
 	return kdj[i].K > KDJWeeklyFilter ||
 		bbi[i].Diff > BBIWeeklyFilter
 }
@@ -282,6 +282,30 @@ func filterWeekly(data []domain.Data) bool {
 // 	// ||
 // 	// bbi[i].Diff > BBIMonthlyFilter
 // }
+
+func weeklyData(data []domain.Data) []domain.Data {
+	weekly := []domain.Data{}
+	t := time.Now().Add(time.Hour * 24 * 365)
+	for i := len(data) - 1; i >= 0; i-- {
+		d := data[i]
+		if !d.Date.Add(time.Hour * 24 * 6).Before(t) {
+			continue
+		}
+		t = d.Date
+		weekly = append([]domain.Data{d}, weekly...)
+	}
+	return weekly
+}
+
+func dmiPeak(data []domain.Data) bool {
+	dmi := analyze.DMI(data, 14)
+	for i := 0; i < 7; i++ {
+		if analyze.DMIMinusPeak(dmi, i) {
+			return true
+		}
+	}
+	return false
+}
 
 func underAverage(data []domain.Data) bool {
 	count := 1460

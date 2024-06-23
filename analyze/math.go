@@ -30,3 +30,11 @@ func Min[T constraints.Ordered](s ...T) T {
 	}
 	return m
 }
+
+func Sum(s []float64) float64 {
+	sum := 0.0
+	for _, e := range s {
+		sum += e
+	}
+	return sum
+}

@@ -2,6 +2,8 @@ package analyze
 
 import "github.com/raymond-chia/stock/domain"
 
+// https://zh.wikipedia.org/wiki/%E7%A7%BB%E5%8B%95%E5%B9%B3%E5%9D%87
+
 // a = 2 / (n + 1)
 // n 代表天數
 //

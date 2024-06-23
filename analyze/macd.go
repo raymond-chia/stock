@@ -2,6 +2,7 @@ package analyze
 
 import "github.com/raymond-chia/stock/domain"
 
+// TODO find out why this is very different from Yahoo
 func MACD(data []domain.Data) []domain.MACDData {
 	// padding
 	// we will remove it later

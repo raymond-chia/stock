@@ -34,3 +34,9 @@ type BullBearIndex struct {
 	BBI  float64
 	Diff float64
 }
+
+type DMI struct {
+	Date  time.Time
+	Plus  float64
+	Minus float64
+}
