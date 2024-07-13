@@ -25,10 +25,11 @@ const (
 type ID string
 
 // 定存股
+// 玉山金 2884 利息 & 股票
+// 0056
+// 聯華 1229 利息 & 股票
 // 鈊象 3293
-// 聯華 1229: 股票
-// 義隆 2458: 現金
-// 橘子 6180: 看營收
+// 00679B 美債 ... 利息低
 var IDs = map[ID]int{
 	"0050": 0,
 	"0056": 0,
@@ -168,7 +169,7 @@ var IDs = map[ID]int{
 	"2634": 0,
 }
 
-// 人工檢查本益比 ? 有時候高還是可以 ?
+// 每股盈餘 (奇摩基本) x 營收年增% x 本益比 = 預期股價 ??
 // ROE 15%+ (財報狗)
 // 營業利益率 10%+ (奇摩基本)
 // CDP 不高 (月線). 收縮 ??
@@ -176,6 +177,7 @@ var IDs = map[ID]int{
 // DMI 紅尖買, 藍尖賣.
 // DMI +DI 上漲程度; -DI 下降程度; AD https://tw.stock.yahoo.com/news/%E6%8A%80%E8%A1%93%E5%88%86%E6%9E%90-dmi%E6%8C%87%E6%A8%99-dmi%E5%8B%95%E5%90%91%E6%8C%87%E6%A8%99-%E5%A4%9A%E7%A9%BA%E6%96%B9%E5%90%91-%E8%B6%A8%E5%8B%A2%E5%8B%95%E8%83%BD-130256849.html
 // Yahoo 股市: 本益比, 股利, 財務, 基本
+// Goodinfo 財務評分表
 func main() {
 	fmt.Println("總共:", len(IDs))
 
@@ -301,6 +303,11 @@ func dmiPeak(data []domain.Data) bool {
 	dmi := analyze.DMI(data, 14)
 	for i := 0; i < 7; i++ {
 		if analyze.DMIMinusPeak(dmi, i) {
+			for j := 0; j < i; j++ {
+				if analyze.DMIPlusPeak(dmi, j) {
+					return false
+				}
+			}
 			return true
 		}
 	}
