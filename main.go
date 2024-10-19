@@ -20,6 +20,9 @@ const (
 
 	// 成交量不低
 	// rsi 替代 kdj
+
+	VolumeThresholdWeekly  = 2
+	VolumeThresholdMonthly = 3
 )
 
 type ID string
@@ -172,50 +175,71 @@ var IDs = map[ID]int{
 // 每股盈餘 (奇摩基本) x 營收年增% x 本益比 = 預期股價 ??
 // ROE 15%+ (財報狗)
 // 營業利益率 10%+ (奇摩基本)
-// CDP 不高 (月線). 收縮 ??
 // RSI 當 RSI 高於 70, 表示股價處於超買區, 可能會回調; 當 RSI 低於 30, 表示股價處於超賣區, 可能會反彈
-// DMI 紅尖買, 藍尖賣.
+// DMI +DI尖賣; -DI尖買
 // DMI +DI 上漲程度; -DI 下降程度; AD https://tw.stock.yahoo.com/news/%E6%8A%80%E8%A1%93%E5%88%86%E6%9E%90-dmi%E6%8C%87%E6%A8%99-dmi%E5%8B%95%E5%90%91%E6%8C%87%E6%A8%99-%E5%A4%9A%E7%A9%BA%E6%96%B9%E5%90%91-%E8%B6%A8%E5%8B%A2%E5%8B%95%E8%83%BD-130256849.html
+// MACD 長期趨勢. 負正黃金交叉; 正負死亡交叉
+// CDP 短線趨勢. 分開買; 收縮賣 ??
 // Yahoo 股市: 本益比, 股利, 財務, 基本
 // Goodinfo 財務評分表
+// 股價預估值 ?? https://www.findbillion.com/twstock/1231
 func main() {
 	fmt.Println("總共:", len(IDs))
 
-	daily, weekly, weeklyAndUnderAverage, dailyDMI := crawl()
+	result := crawl()
 
 	fmt.Println("# 日篩選:")
-	for id, name := range daily {
-		if _, ok := weekly[id]; ok {
+	for id, name := range result.Daily {
+		if _, ok := result.Weekly[id]; ok {
 			continue
 		}
 		fmt.Println(id, name)
 	}
 	fmt.Println("# 周篩選:")
-	for id, name := range weekly {
+	for id, name := range result.Weekly {
 		fmt.Println(id, name)
 	}
 	// TODO 今年營收成長大於 0% ?
 	fmt.Println("# 周篩選且價格低於平均:")
-	for id, name := range weeklyAndUnderAverage {
+	for id, name := range result.WeeklyAndUnderAverage {
 		fmt.Println(id, name)
 	}
 	fmt.Println("# 日近期有 DMI -DI 尖:")
-	for id, name := range dailyDMI {
+	for id, name := range result.DailyDMI {
+		fmt.Println(id, name)
+	}
+	fmt.Println("# 周成交增長", VolumeThresholdWeekly)
+	for id, name := range result.weeklyVolume {
+		fmt.Println(id, name)
+	}
+	fmt.Println("# 月成交增長", VolumeThresholdMonthly)
+	for id, name := range result.monthlyVolume {
 		fmt.Println(id, name)
 	}
 }
 
 type Name string
-type Filter map[ID]Name
+type IDToName map[ID]Name
 
-func crawl() (Filter, Filter, Filter, Filter) {
-	daily := Filter{}
-	weekly := Filter{}
-	weeklyAndUnderAverage := Filter{}
-	dailyDMI := Filter{}
+type CrawlResult struct {
+	Daily                 IDToName
+	Weekly                IDToName
+	WeeklyAndUnderAverage IDToName
+	DailyDMI              IDToName
+	weeklyVolume          IDToName
+	monthlyVolume         IDToName
+}
+
+func crawl() CrawlResult {
+	daily := IDToName{}
+	weekly := IDToName{}
+	weeklyAndUnderAverage := IDToName{}
+	dailyDMI := IDToName{}
+	weeklyVolume := IDToName{}
+	monthlyVolume := IDToName{}
 
 	for id := range IDs {
-		missing, name, data, err := yahoo.Yahoo(string(id))
+		missing, _name, data, err := yahoo.Yahoo(string(id))
 		if err != nil {
 			fmt.Println("an error occurs:", err)
 			continue
@@ -223,23 +247,38 @@ func crawl() (Filter, Filter, Filter, Filter) {
 		if missing {
 			fmt.Println(id, "missing data")
 		}
+		name := Name(_name)
 		weeklyData := weeklyData(data)
 
 		if !filterDaily(data) {
-			daily[id] = Name(name)
+			daily[id] = name
 		}
 		if !filterWeekly(weeklyData) {
-			weekly[id] = Name(name)
+			weekly[id] = name
 			if underAverage(data) {
-				weeklyAndUnderAverage[id] = Name(name)
+				weeklyAndUnderAverage[id] = name
 			}
 		}
 
 		if dmiPeak(data) {
-			dailyDMI[id] = Name(name)
+			dailyDMI[id] = name
+		}
+
+		if this, previous := volumeSurge(data, 5); this > previous*VolumeThresholdWeekly {
+			weeklyVolume[id] = name
+		}
+		if this, previous := volumeSurge(data, 20); this > previous*VolumeThresholdMonthly {
+			monthlyVolume[id] = name
 		}
 	}
-	return daily, weekly, weeklyAndUnderAverage, dailyDMI
+	return CrawlResult{
+		Daily:                 daily,
+		Weekly:                weekly,
+		WeeklyAndUnderAverage: weeklyAndUnderAverage,
+		DailyDMI:              dailyDMI,
+		weeklyVolume:          weeklyVolume,
+		monthlyVolume:         monthlyVolume,
+	}
 }
 
 func filterDaily(data []domain.Data) bool {
@@ -325,4 +364,18 @@ func underAverage(data []domain.Data) bool {
 	}
 	avg := total / float64(count)
 	return data[len(data)-1].Close < avg
+}
+
+// ignore holidays
+func volumeSurge(data []domain.Data, interval int) (int, int) {
+	l := len(data)
+	this := 0
+	previous := 0
+	for _, d := range data[l-interval : l] {
+		this += d.Volume
+	}
+	for _, d := range data[l-interval*2 : l-interval] {
+		previous += d.Volume
+	}
+	return this, previous
 }
